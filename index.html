@@ -401,4 +401,239 @@ window.addEventListener('load',init);
 })();
 </script>
 
+
+<script>
+/* valor_IA FIX DEFINITIVO - cotações existentes (usa variável global lexical quotes, não window.quotes) */
+(function(){
+  function qsObj(){
+    try {
+      if (typeof quotes !== "undefined" && quotes) return quotes;
+    } catch(e){}
+    return window.quotes || {};
+  }
+  function supsObj(){
+    try {
+      if (typeof suppliers !== "undefined" && suppliers) return suppliers;
+    } catch(e){}
+    return window.suppliers || {};
+  }
+  function qArr(){
+    return Object.entries(qsObj() || {}).map(function(pair){
+      return Object.assign({id: pair[0]}, pair[1] || {});
+    }).sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+  }
+  function E(v){
+    try { if (typeof esc === "function") return esc(v); } catch(e){}
+    return String(v == null ? "" : v).replace(/[&<>"']/g, function(m){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m];
+    });
+  }
+  function M(v){
+    try { if (typeof money === "function") return money(v); } catch(e){}
+    return Number(v||0).toLocaleString("pt-BR", {style:"currency", currency:"BRL"});
+  }
+  function supplierName(sid){
+    var s = (supsObj() || {})[sid] || {};
+    return s.name || s.nome || sid || "Fornecedor";
+  }
+  function responsesForItem(q,item){
+    var rows = [];
+    Object.entries(q.responses || {}).forEach(function(pair){
+      var sid = pair[0];
+      var r = (pair[1] || {})[item.id];
+      if(!r) return;
+      rows.push({
+        sid: sid,
+        supplierName: supplierName(sid),
+        available: r.available !== false,
+        brand: r.brand || r.marca || "",
+        brandCode: r.brandCode || r.codigoMarca || "",
+        desc: r.desc || r.descricaoFornecedor || "",
+        price: Number(r.price || r.preco || 0),
+        availability: r.availability || r.disponibilidade || "",
+        obs: r.obs || r.observacao || "",
+        raw: r.raw || r.rawText || r.text || "",
+        source: r.source || r.origem || "formulário"
+      });
+    });
+    rows.sort(function(a,b){
+      if(a.available !== b.available) return a.available ? -1 : 1;
+      return (a.price || 999999999) - (b.price || 999999999);
+    });
+    return rows;
+  }
+  function bestForItem(q,item){
+    return responsesForItem(q,item).filter(function(r){ return r.available && r.price > 0; })[0] || null;
+  }
+  function findQuoteContainer(){
+    return document.getElementById("quoteList")
+      || document.getElementById("quotesList")
+      || document.getElementById("cotacoesList")
+      || document.querySelector("#cotacoes .card");
+  }
+  function getSupplierListForQuote(q){
+    var all = Object.entries(supsObj() || {}).map(function(pair){ return Object.assign({id:pair[0]}, pair[1]||{}); });
+    if(!all.length) return [];
+    return all;
+  }
+  function quoteToken(qid,sid){
+    return btoa(qid+"|"+sid+"|valorIA").replaceAll("=","");
+  }
+  window.quoteLinkFixed = function(qid,sid){
+    var token = quoteToken(qid,sid);
+    var base = location.origin + location.pathname.replace(/index\.html.*$/,"");
+    return base + "fornecedor.html?q=" + encodeURIComponent(qid) + "&s=" + encodeURIComponent(sid) + "&t=" + encodeURIComponent(token);
+  };
+  window.ensureLinkFixed = function(qid,sid){
+    try {
+      if(typeof db !== "undefined" && db) {
+        return db.ref("quotes/"+qid+"/links/"+sid).update({token: quoteToken(qid,sid), supplierId:sid, createdAt:Date.now()});
+      }
+    } catch(e){ console.warn(e); }
+    return Promise.resolve();
+  };
+  window.buildMessageFixed = function(q,sid){
+    var s = (supsObj() || {})[sid] || {};
+    var link = window.quoteLinkFixed(q.id, sid);
+    var qtd = (q.items || []).length;
+    var estabelecimento = "valor_IA";
+    try { if(typeof settings !== "undefined" && settings && settings.name) estabelecimento = settings.name; } catch(e){}
+    return [
+      "Olá " + (s.name || s.nome || "Fornecedor") + ", aqui é " + estabelecimento + ".",
+      "",
+      "Cotação " + (q.number || q.id) + " - " + ([q.vehicle?.brand,q.vehicle?.model,q.vehicle?.plate].filter(Boolean).join(" ")),
+      "São " + qtd + " item(ns).",
+      "",
+      "Confirme marca, código da marca, preço atual e disponibilidade pelo link:",
+      link,
+      "",
+      "Powered by thIAguinho Soluções Digitais"
+    ].join("\n");
+  };
+  window.openWaFixed = function(qid,sid){
+    var q = qsObj()[qid]; if(!q) return alert("Cotação não encontrada.");
+    var s = (supsObj() || {})[sid] || {};
+    var phone = String(s.phone || s.whatsapp || "").replace(/\D/g,"");
+    if(phone.length===10 || phone.length===11) phone = "55"+phone;
+    if(!phone) return alert("Fornecedor sem WhatsApp cadastrado.");
+    window.ensureLinkFixed(qid,sid);
+    var msg = window.buildMessageFixed(q,sid);
+    window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg), "_blank");
+  };
+  window.copyMsgFixed = function(qid,sid){
+    var q = qsObj()[qid]; if(!q) return alert("Cotação não encontrada.");
+    window.ensureLinkFixed(qid,sid);
+    navigator.clipboard.writeText(window.buildMessageFixed(q,sid));
+    alert("Mensagem copiada.");
+  };
+  window.enqueueSelectedFixed = function(qid){
+    var q = qsObj()[qid]; if(!q) return alert("Cotação não encontrada.");
+    var checked = Array.from(document.querySelectorAll("[data-quote-supplier='"+qid+"']:checked")).map(function(x){return x.value;});
+    if(!checked.length) return alert("Selecione pelo menos um fornecedor.");
+    var updates = {};
+    checked.forEach(function(sid){
+      var s = (supsObj() || {})[sid] || {};
+      var phone = String(s.phone || s.whatsapp || "").replace(/\D/g,"");
+      if(phone.length===10 || phone.length===11) phone="55"+phone;
+      var key = "wa_"+Date.now()+"_"+Math.random().toString(16).slice(2,8);
+      updates["quotes/"+qid+"/links/"+sid] = {token: quoteToken(qid,sid), supplierId:sid, createdAt:Date.now()};
+      updates["whatsappQueue/"+key] = {
+        quoteId: qid,
+        quoteNumber: q.number || qid,
+        supplierId: sid,
+        supplierName: s.name || s.nome || "Fornecedor",
+        phone: phone,
+        message: window.buildMessageFixed(q,sid),
+        status: "pending",
+        createdAt: Date.now(),
+        signature: "Powered by thIAguinho Soluções Digitais"
+      };
+    });
+    if(typeof db !== "undefined" && db) db.ref().update(updates).then(function(){ alert(checked.length+" mensagem(ns) adicionada(s) na fila do robô."); });
+  };
+  window.renderFullComparisonFixed = function(qid){
+    var q = qsObj()[qid]; if(!q) return alert("Cotação não encontrada.");
+    var html = '<div class="card" style="box-shadow:none;margin-top:12px"><h3>📊 Comparação completa</h3><p class="muted">Marca, código da marca, descrição, preço, prazo, observação e resposta bruta de cada fornecedor.</p><div class="tablewrap"><table><thead><tr><th>Peça</th><th>Fornecedor</th><th>Marca</th><th>Cód. marca</th><th>Descrição fornecedor</th><th>Preço unit.</th><th>Total</th><th>Prazo</th><th>Obs./bruto</th></tr></thead><tbody>';
+    (q.items || []).forEach(function(item){
+      var qty = Number(item.qty || 1);
+      var rows = responsesForItem(q,item);
+      if(!rows.length){
+        html += '<tr><td><b>'+E(item.desc||"-")+'</b><br><span class="muted">'+E(item.oem||"-")+' | Qtd '+qty+'</span></td><td colspan="8"><span class="bad">Sem resposta</span></td></tr>';
+      } else {
+        rows.forEach(function(r,idx){
+          html += '<tr>'
+          + '<td>'+(idx===0 ? '<b>'+E(item.desc||"-")+'</b><br><span class="muted">'+E(item.oem||"-")+' | Qtd '+qty+'</span>' : '')+'</td>'
+          + '<td><b>'+E(r.supplierName)+'</b><br><span class="muted">'+E(r.source)+'</span></td>'
+          + '<td>'+(r.available ? E(r.brand||"-") : '<span class="bad">Não tem</span>')+'</td>'
+          + '<td>'+E(r.brandCode||"-")+'</td>'
+          + '<td>'+E(r.desc||"-")+'</td>'
+          + '<td>'+(r.price ? M(r.price) : "-")+'</td>'
+          + '<td>'+(r.price ? M(r.price*qty) : "-")+'</td>'
+          + '<td>'+E(r.availability||"-")+'</td>'
+          + '<td>'+E(r.obs||"-")+(r.raw ? '<br><span class="muted">Bruto: '+E(r.raw)+'</span>' : '')+'</td>'
+          + '</tr>';
+        });
+      }
+    });
+    html += '</tbody></table></div><p class="muted small">Powered by thIAguinho Soluções Digitais</p></div>';
+    var box = document.getElementById("comparison_"+qid);
+    if(box) box.innerHTML = html;
+  };
+  window.renderQuotes = function(){
+    var el = findQuoteContainer();
+    if(!el) return console.warn("Container da aba Cotações não encontrado.");
+    var list = qArr();
+    if(!list.length){
+      el.innerHTML = '<h2>Cotações</h2><p class="muted">Nenhuma cotação criada.</p>';
+      return;
+    }
+    el.innerHTML = '<h2>Cotações</h2>' + list.map(function(q){
+      var items = q.items || [];
+      var answered = items.filter(function(it){return !!bestForItem(q,it);}).length;
+      var lucro = 0;
+      items.forEach(function(it){
+        var b = bestForItem(q,it);
+        var sale = Number(it.saleTotal || (Number(it.saleUnit||0)*Number(it.qty||1)) || 0);
+        if(b) lucro += sale - (b.price * Number(it.qty||1));
+      });
+      var v = q.vehicle || {};
+      var sups = getSupplierListForQuote(q);
+      return '<div class="quote">'
+        + '<h3>'+E(q.number||q.id)+' <span class="pill">'+E(q.status||"open")+'</span></h3>'
+        + '<p class="muted">'+E([v.brand,v.model,v.year,v.plate].filter(Boolean).join(" "))+' — '+items.length+' item(ns) — respondidos '+answered+'/'+items.length+'</p>'
+        + '<p><b>Lucro estimado:</b> <span class="'+(lucro>=0?'ok':'bad')+'">'+M(lucro)+'</span></p>'
+        + '<div class="row">'
+        + '<button onclick="renderFullComparisonFixed(\''+q.id+'\')">Comparar respostas</button>'
+        + '<button class="light" onclick="if(typeof analyzeQuote===\'function\')analyzeQuote(\''+q.id+'\')">Analisar cotação</button>'
+        + '<button class="light" onclick="if(typeof editQuote===\'function\')editQuote(\''+q.id+'\')">Editar</button>'
+        + '<button class="red" onclick="if(typeof deleteQuote===\'function\')deleteQuote(\''+q.id+'\')">Excluir</button>'
+        + '</div>'
+        + '<div class="card" style="box-shadow:none;margin-top:10px"><h3>Enviar para fornecedores</h3><div class="grid">'
+        + sups.map(function(s){
+          return '<div class="supplierBox">'
+            + '<label><input type="checkbox" data-quote-supplier="'+q.id+'" value="'+s.id+'"> <b>'+E(s.name||s.nome||"Fornecedor")+'</b></label>'
+            + '<div class="muted">'+E(s.phone||s.whatsapp||"")+'</div>'
+            + '<button class="light" onclick="openWaFixed(\''+q.id+'\',\''+s.id+'\')">WhatsApp</button>'
+            + '<button class="light" onclick="copyMsgFixed(\''+q.id+'\',\''+s.id+'\')">Copiar</button>'
+            + '</div>';
+        }).join("")
+        + '</div><button onclick="enqueueSelectedFixed(\''+q.id+'\')">Enviar selecionados com robô</button></div>'
+        + '<div id="comparison_'+q.id+'"></div>'
+        + '</div>';
+    }).join("");
+  };
+  window.renderAll = function(){
+    try{
+      if(typeof renderStats === "function") renderStats();
+      if(typeof renderSuppliers === "function") renderSuppliers();
+      window.renderQuotes();
+      if(typeof renderOrders === "function") renderOrders();
+      if(typeof renderRobot === "function") renderRobot();
+    } catch(e) {
+      console.error("renderAll protegido:", e);
+    }
+  };
+})();
+</script>
+
 </body></html>
