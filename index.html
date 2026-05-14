@@ -37,7 +37,7 @@ header{background:linear-gradient(120deg,#fff,#eef5ff);border-bottom:1px solid v
     <input id="loginEmail" type="email" placeholder="admin@cliente.com" autocomplete="username">
     <label>Senha</label>
     <input id="loginPassword" type="password" placeholder="Senha do Firebase Auth" autocomplete="current-password">
-    <button class="green" onclick="loginAdmin()">Entrar</button>
+    <button class="green" id="loginBtn">Entrar</button>
     <p id="loginError" class="bad small"></p>
     <p class="muted small">Powered by thIAguinho Soluções Digitais</p>
   </div>
@@ -196,5 +196,95 @@ function analyzeQuote(qid){
   if(box) box.innerHTML = htmlAnalise;
   else alert("Análise gerada, mas não encontrei a área de exibição nesta cotação.");
 }
+
+
+
+/* valor_IA login bridge fix v13.10.1 */
+(function(){
+  function byId(id){ return document.getElementById(id); }
+
+  window.showLogin = function(show){
+    var el = byId("loginOverlay");
+    if(el) el.classList.toggle("authHidden", !show);
+  };
+
+  window.loginAdmin = function(){
+    var emailEl = byId("loginEmail");
+    var passEl = byId("loginPassword");
+    var err = byId("loginError");
+    var email = emailEl ? emailEl.value.trim() : "";
+    var pass = passEl ? passEl.value : "";
+    if(err) err.textContent = "";
+    if(!email || !pass){
+      if(err) err.textContent = "Preencha e-mail e senha.";
+      return;
+    }
+    if(!firebase || !firebase.auth){
+      if(err) err.textContent = "Firebase Auth não carregou. Confira se o arquivo index.html foi atualizado.";
+      return;
+    }
+    firebase.auth().signInWithEmailAndPassword(email, pass).catch(function(e){
+      if(err) err.textContent = "Falha no login: " + (e.message || e.code || e);
+    });
+  };
+
+  window.logoutAdmin = function(){
+    if(firebase && firebase.auth) firebase.auth().signOut();
+  };
+
+  window.init = function(){
+    try{
+      if(!window.firebaseConfig){
+        alert("firebase-config.js não carregou.");
+        return;
+      }
+      if(!firebase.apps || !firebase.apps.length){
+        firebase.initializeApp(window.firebaseConfig);
+      }
+
+      var loginBtn = byId("loginBtn");
+      if(loginBtn) loginBtn.addEventListener("click", window.loginAdmin);
+
+      var logoutBtn = byId("logoutBtn");
+      if(logoutBtn) logoutBtn.addEventListener("click", window.logoutAdmin);
+
+      var pass = byId("loginPassword");
+      if(pass){
+        pass.addEventListener("keydown", function(e){
+          if(e.key === "Enter") window.loginAdmin();
+        });
+      }
+
+      firebase.auth().onAuthStateChanged(function(user){
+        window.currentUser = user || null;
+        if(user){
+          window.showLogin(false);
+          if(!window.__valorIAStarted){
+            window.__valorIAStarted = true;
+            if(typeof startAppAfterLogin === "function"){
+              startAppAfterLogin();
+            } else if(typeof startApp === "function"){
+              startApp();
+            } else if(typeof renderAll === "function"){
+              if(typeof db === "undefined" || !db) window.db = firebase.database();
+              renderAll();
+            }
+          }
+        }else{
+          window.showLogin(true);
+        }
+      });
+    }catch(e){
+      console.error(e);
+      alert("Erro ao iniciar login: " + (e.message || e));
+    }
+  };
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", window.init);
+  }else{
+    window.init();
+  }
+})();
 
 </script></body></html>
