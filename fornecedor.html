@@ -8,190 +8,27 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <style>
-:root{
-  --bg:#f4f7fb;--card:#fff;--line:#d9e2ef;--text:#172033;--muted:#667085;
-  --blue:#1d4ed8;--green:#16a34a;--red:#dc2626;--amber:#d97706;--soft:#f8fafc;
-  --shadow:0 10px 28px rgba(15,23,42,.08);--radius:18px;
-}
-*{box-sizing:border-box}
-body{margin:0;background:linear-gradient(180deg,#eef5ff,#f8fafc);font-family:Arial,Helvetica,sans-serif;color:var(--text)}
-header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:13px}
-main{max-width:920px;margin:auto;padding:12px}
-h1{font-size:21px;margin:0}h2{font-size:18px;margin:0 0 8px}.muted{color:var(--muted)}.small{font-size:12px}
-.card,.item{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin:12px 0;box-shadow:var(--shadow)}
-.hero{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
-.badge{display:inline-block;border:1px solid var(--line);background:#f8fafc;border-radius:999px;padding:6px 9px;margin:3px;font-size:12px}
-.progress{height:12px;background:#e5e7eb;border-radius:999px;overflow:hidden}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--green),#22c55e)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
-label{display:block;margin:8px 0 4px;font-weight:800;color:#46556b;font-size:13px}
-input,textarea,select{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px;font-size:14px;background:#fff}
-textarea{min-height:56px}
-button{border:0;border-radius:12px;padding:11px 13px;background:var(--blue);color:white;font-weight:900;cursor:pointer;margin:3px}
-button.green{background:var(--green)}button.red{background:var(--red)}button.amber{background:var(--amber)}button.light{background:#eef4fb;color:#243349;border:1px solid var(--line)}
-.quick{display:flex;gap:7px;flex-wrap:wrap}.quick button{flex:1;min-width:96px}
-.itemHead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
-.itemNumber{background:#e0edff;color:#1d4ed8;border-radius:14px;padding:8px 10px;font-weight:900}
-.item.saved{border-color:#bbf7d0;background:#fbfffc}.item.unavailable{border-color:#fecaca;background:#fffafa}
-.formArea.hidden{display:none}
-.statusLine{font-size:13px;font-weight:800}.ok{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}
-.stickyBottom{position:sticky;bottom:0;background:rgba(245,247,251,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:10px;margin-top:20px}
-.footer{text-align:center;color:#64748b;padding:22px}
-@media(max-width:680px){main{padding:10px}.card,.item{border-radius:16px;padding:13px}header{padding:11px}h1{font-size:19px}.quick button{min-width:80px}}
+body{margin:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#172033}main{max-width:900px;margin:auto;padding:14px}.card,.item{background:#fff;border:1px solid #d9e2ef;border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 10px 28px #0001}label{display:block;margin:8px 0 4px;font-weight:800}input,textarea,select{width:100%;border:1px solid #d9e2ef;border-radius:12px;padding:10px}button{border:0;border-radius:12px;padding:10px 13px;font-weight:900;cursor:pointer;background:#2563eb;color:white;margin:3px}.green{background:#15803d}.red{background:#dc2626}.light{background:#eef4fb;color:#243349;border:1px solid #d9e2ef}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.badge{display:inline-block;border:1px solid #d9e2ef;border-radius:999px;padding:5px 8px;margin:2px;font-size:12px}.muted{color:#64748b}.footer{text-align:center;padding:22px;color:#64748b}.hidden{display:none!important}
 </style>
 </head>
 <body>
-<header>
-  <div class="hero">
-    <div>
-      <h1>🧾 Responder cotação</h1>
-      <div class="muted small">Responda rápido: tenho, não tenho, preço e prazo.</div>
-    </div>
-    <div id="topStatus" class="badge">Carregando...</div>
-  </div>
-</header>
-<main>
-  <div id="app">Carregando...</div>
-</main>
+<main><h1>🧾 Responder cotação</h1><div id="app">Carregando...</div></main>
 <div class="footer">Powered by thIAguinho Soluções Digitais</div>
-
 <script>
-const ASSINATURA="Powered by thIAguinho Soluções Digitais";
-let db,qid,sid,token,quote={},supplier={};
-function $(id){return document.getElementById(id)}
-function qs(k){return new URLSearchParams(location.search).get(k)||""}
-function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+const ASSINATURA="Powered by thIAguinho Soluções Digitais";let db=null,source="",qid="",sid="",quote=null,supplier=null;
+function $(id){return document.getElementById(id)}function qs(k){return new URLSearchParams(location.search).get(k)||""}
+function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function parseMoney(v){let s=String(v||"").replace(/[^\d,.-]/g,"").trim();if(!s)return 0;if(s.includes(",")&&s.includes("."))s=s.replace(/\./g,"").replace(",",".");else if(s.includes(","))s=s.replace(",",".");let n=Number(s);return Number.isFinite(n)?n:0}
-function setVal(id,v){const el=$(id); if(el) el.value=v}
-function init(){
-  firebase.initializeApp(window.firebaseConfig); db=firebase.database();
-  qid=qs("q"); sid=qs("s"); token=qs("t");
-  if(!qid||!sid)return $("app").innerHTML="<div class='card'><b>Link inválido.</b></div>";
-  db.ref("quotes/"+qid).on("value",snap=>{quote=snap.val()||{}; loadSupplier();});
-}
-function loadSupplier(){db.ref("suppliers/"+sid).once("value").then(s=>{supplier=s.val()||{}; render();});}
-function visibleItems(){
-  return (quote.items||[]).filter(i=>quote.kind==="priceCheck"?i.targetSupplierId===sid:true);
-}
-function countAnswered(items,resp){
-  return items.filter(i=>resp[i.id] && (resp[i.id].price || resp[i.id].available===false)).length;
-}
-function render(){
-  if(!quote.id)return $("app").innerHTML="<div class='card'>Cotação não encontrada.</div>";
-  const link=quote.links?.[sid];
-  if(link?.token && token && link.token!==token)return $("app").innerHTML="<div class='card'><b>Link não autorizado.</b></div>";
-  if(quote.status==="closed"){
-    $("topStatus").textContent="Encerrada";
-    return $("app").innerHTML=`<div class='card'><h2>Cotação encerrada</h2><p>Esta cotação não está mais disponível para resposta.</p><p class='muted'>${ASSINATURA}</p></div>`;
-  }
-  const items=visibleItems();
-  const resp=quote.responses?.[sid]||{};
-  const answered=countAnswered(items,resp);
-  const pct=items.length?Math.round(answered/items.length*100):0;
-  $("topStatus").textContent=`${answered}/${items.length} respondidos`;
-
-  $("app").innerHTML=`
-    <div class="card">
-      <h2>${esc(supplier.name||"Fornecedor")}</h2>
-      <p><b>Cotação:</b> ${esc(quote.number||qid)}<br>
-      <b>Veículo/ref.:</b> ${esc([quote.vehicle?.brand,quote.vehicle?.model,quote.vehicle?.plate].filter(Boolean).join(" ")||"-")}</p>
-      <div class="progress"><span style="width:${pct}%"></span></div>
-      <p class="muted small">Valores internos da oficina não aparecem aqui. Você informa seu preço atual e disponibilidade.</p>
-      <div class="quick">
-        <button class="light" onclick="applyAvailabilityAll('pronta entrega')">Prazo todos: pronta entrega</button>
-        <button class="light" onclick="applyAvailabilityAll('amanhã')">Prazo todos: amanhã</button>
-        <button class="light" onclick="applyAvailabilityAll('2 dias')">Prazo todos: 2 dias</button>
-      </div>
-    </div>
-    ${items.map((it,idx)=>renderItem(it,idx,resp[it.id]||{})).join("")}
-    <div class="stickyBottom">
-      <button class="green" onclick="saveAll()">Salvar tudo preenchido</button>
-      <button class="light" onclick="window.scrollTo({top:0,behavior:'smooth'})">Voltar ao topo</button>
-      <span class="muted small"> ${ASSINATURA}</span>
-    </div>`;
-}
-function renderItem(it,idx,r){
-  const answered = r && (r.price || r.available===false);
-  const unavailable = r && r.available===false;
-  const formHidden = unavailable ? "hidden" : "";
-  return `<div class="item ${answered?'saved':''} ${unavailable?'unavailable':''}" id="card_${it.id}">
-    <div class="itemHead">
-      <div>
-        <h2><span class="itemNumber">${idx+1}</span> ${esc(it.desc)}</h2>
-        <div>
-          <span class="badge">Código: ${esc(it.oem||"-")}</span>
-          ${it.altCode?`<span class="badge">Alt: ${esc(it.altCode)}</span>`:""}
-          <span class="badge">Qtd: ${esc(it.qty||1)}</span>
-        </div>
-      </div>
-      <div class="statusLine">${answered?`<span class="${unavailable?'bad':'ok'}">${unavailable?'✖ não tenho':'✔ salvo'}</span>`:`<span class="warn">pendente</span>`}</div>
-    </div>
-
-    <div class="quick" style="margin-top:10px">
-      <button class="green" onclick="markAvailable('${it.id}',true)">Tenho</button>
-      <button class="red" onclick="saveUnavailable('${it.id}')">Não tenho e ir para próxima</button>
-    </div>
-
-    <div class="formArea ${formHidden}" id="form_${it.id}">
-      <div class="grid">
-        <div><label>Marca</label><input id="brand_${it.id}" value="${esc(r.brand||it.brand||"")}" placeholder="Ex: COFAP"></div>
-        <div><label>Código da marca</label><input id="bc_${it.id}" value="${esc(r.brandCode||it.brandCode||"")}" placeholder="Opcional"></div>
-        <div><label>Preço unitário atual</label><input id="price_${it.id}" value="${esc(r.price||"")}" placeholder="Ex: 100,00"></div>
-        <div><label>Disponibilidade / prazo</label><input id="disp_${it.id}" value="${esc(r.availability||it.availability||"")}" placeholder="hoje / amanhã / 2 dias"></div>
-      </div>
-      <label>Descrição do vendedor</label><input id="desc_${it.id}" value="${esc(r.desc||it.desc||"")}" placeholder="Pode ajustar a descrição se necessário">
-      <label>Observação</label><textarea id="obs_${it.id}" placeholder="Condição, frete, pagamento, similar, original...">${esc(r.obs||"")}</textarea>
-      <button class="green" onclick="saveItem('${it.id}', true)">Salvar e ir para próxima</button>
-      <button class="light" onclick="saveItem('${it.id}', false)">Salvar este item</button>
-      <span id="status_${it.id}" class="muted small"></span>
-    </div>
-  </div>`;
-}
-function applyAvailabilityAll(v){ visibleItems().forEach(it=>setVal("disp_"+it.id,v)); }
-function markAvailable(id,val){
-  const f=$("form_"+id);
-  if(f) f.classList.toggle("hidden", !val);
-  if(val) setVal("disp_"+id, $("disp_"+id)?.value || "pronta entrega");
-}
-function saveUnavailable(id){
-  db.ref(`quotes/${qid}/responses/${sid}/${id}`).set({
-    available:false, brand:"", brandCode:"", desc:"", price:0, availability:"indisponível",
-    obs:"Fornecedor marcou como não tenho", updatedAt:Date.now(), source:"form_button",
-    signature:ASSINATURA
-  }).then(()=>goNext(id));
-}
-function payload(id){
-  return {available:true,brand:$("brand_"+id).value.trim(),brandCode:$("bc_"+id).value.trim(),desc:$("desc_"+id).value.trim(),price:parseMoney($("price_"+id).value),availability:$("disp_"+id).value.trim(),obs:$("obs_"+id).value.trim(),updatedAt:Date.now(),source:"form",signature:ASSINATURA};
-}
-function saveItem(id,go){
-  const p=payload(id);
-  if(p.price<=0) return alert("Informe o preço unitário ou clique em 'Não tenho'.");
-  return db.ref(`quotes/${qid}/responses/${sid}/${id}`).set(p).then(()=>{
-    const st=$("status_"+id); if(st) st.textContent=" salvo agora";
-    const item=(quote.items||[]).find(x=>x.id===id);
-    if(item && p.available && p.price>0){
-      const priceId=item.sourcePriceId || (`auto_${sid}_${(item.oem||id).replace(/[^a-z0-9]/gi,"_")}`);
-      db.ref("priceDb/"+priceId).update({supplierId:sid,oem:item.oem||"",desc:p.desc||item.desc,brand:p.brand,brandCode:p.brandCode,price:p.price,availability:p.availability,obs:p.obs,updatedAt:Date.now(),signature:ASSINATURA});
-    }
-    if(go) goNext(id);
-  });
-}
-function goNext(id){
-  const items=visibleItems();
-  const idx=items.findIndex(i=>i.id===id);
-  const next=items[idx+1];
-  if(next && $("card_"+next.id)) $("card_"+next.id).scrollIntoView({behavior:"smooth",block:"start"});
-  else alert("Último item salvo. Obrigado!");
-}
-function saveAll(){
-  const items=visibleItems();
-  Promise.all(items.map(i=>{
-    const priceEl=$("price_"+i.id);
-    if(!priceEl) return Promise.resolve();
-    if(parseMoney(priceEl.value)>0) return saveItem(i.id,false);
-    return Promise.resolve();
-  })).then(()=>alert("Itens preenchidos foram salvos."));
-}
-window.addEventListener("load",init);
+function init(){firebase.initializeApp(window.firebaseConfig);db=firebase.database();source=qs("source")||"quotes";qid=qs("q");sid=qs("s");if(!qid||!sid)return $("app").innerHTML="<div class='card'>Link inválido.</div>";load()}
+async function load(){const qSnap=await db.ref((source==="cotacoes"?"cotacoes/":"quotes/")+qid).once("value");quote=qSnap.val();if(!quote)return $("app").innerHTML="<div class='card'>Cotação não encontrada.</div>";let sSnap=await db.ref("suppliers/"+sid).once("value");supplier=sSnap.val();if(!supplier){sSnap=await db.ref("fornecedores/"+sid).once("value");supplier=sSnap.val()}render()}
+function items(){if(source==="cotacoes"){return Object.entries(quote.pecas||{}).map(([pid,it],idx)=>({id:it.id||pid,seq:it.ordem||idx+1,oem:it.codigoOriginal||"",desc:it.descricaoOriginal||"",qty:it.quantidade||1}))}return(quote.items||[])}
+function render(){if(["fechada","closed"].includes(String(quote.status).toLowerCase()))return $("app").innerHTML="<div class='card'><h2>Cotação encerrada</h2></div>";const its=items();$("app").innerHTML=`<div class='card'><h2>${esc(supplier?.name||supplier?.nome||"Fornecedor")}</h2><p>Cotação: <b>${esc(quote.number||quote.numero||qid)}</b><br>${its.length} item(ns)</p><p class='muted'>Valores internos da oficina não aparecem aqui.</p></div>`+its.map((it,idx)=>`<div class='item' id='card_${it.id}'><h2>${idx+1}. ${esc(it.desc)}</h2><span class='badge'>Código: ${esc(it.oem||"-")}</span><span class='badge'>Qtd: ${esc(it.qty)}</span><div><button class='green' onclick="showForm('${it.id}')">Tenho</button><button class='red' onclick="saveNo('${it.id}')">Não tenho e ir para próxima</button></div><div id='form_${it.id}' class='hidden'><div class='grid'><div><label>Marca</label><input id='brand_${it.id}'></div><div><label>Código da marca</label><input id='brandCode_${it.id}'></div><div><label>Preço unitário</label><input id='price_${it.id}'></div><div><label>Disponibilidade/prazo</label><input id='availability_${it.id}'></div></div><label>Descrição do vendedor</label><input id='desc_${it.id}' value='${esc(it.desc)}'><label>Observação</label><textarea id='obs_${it.id}'></textarea><button class='green' onclick="saveYes('${it.id}')">Salvar e próximo</button></div></div>`).join("")}
+function showForm(id){$("form_"+id).classList.remove("hidden")}
+function responsePath(itemId){return source==="cotacoes"?`respostas/${qid}/${sid}/${itemId}`:`quotes/${qid}/responses/${sid}/${itemId}`}
+function saveNo(id){const old=source==="cotacoes";const data=old?{temDisponivel:false,precoUnitario:0,marca:"",codigoMarca:"",descricaoFornecedor:"",disponibilidade:"indisponível",observacao:"Não tenho",fornecedorId:sid,fornecedorNome:supplier?.name||supplier?.nome||"",atualizadoEm:new Date().toISOString()}:{available:false,price:0,brand:"",brandCode:"",desc:"",availability:"indisponível",obs:"Não tenho",source:"form_button",updatedAt:Date.now(),signature:ASSINATURA};db.ref(responsePath(id)).set(data).then(()=>goNext(id))}
+function saveYes(id){const old=source==="cotacoes";const data=old?{temDisponivel:true,precoUnitario:parseMoney($("price_"+id).value),marca:$("brand_"+id).value,codigoMarca:$("brandCode_"+id).value,descricaoFornecedor:$("desc_"+id).value,disponibilidade:$("availability_"+id).value,observacao:$("obs_"+id).value,fornecedorId:sid,fornecedorNome:supplier?.name||supplier?.nome||"",atualizadoEm:new Date().toISOString()}:{available:true,price:parseMoney($("price_"+id).value),brand:$("brand_"+id).value,brandCode:$("brandCode_"+id).value,desc:$("desc_"+id).value,availability:$("availability_"+id).value,obs:$("obs_"+id).value,source:"form",updatedAt:Date.now(),signature:ASSINATURA};if((old?data.precoUnitario:data.price)<=0)return alert("Informe preço ou clique em Não tenho.");db.ref(responsePath(id)).set(data).then(()=>goNext(id))}
+function goNext(id){const its=items();const idx=its.findIndex(i=>i.id===id);const next=its[idx+1];if(next&&$("card_"+next.id))$("card_"+next.id).scrollIntoView({behavior:"smooth"});else alert("Resposta salva. Obrigado!")}
+window.addEventListener("load",init)
 </script>
 </body>
 </html>
