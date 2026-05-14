@@ -243,4 +243,162 @@ window.addEventListener('load',init);
 })();
 </script>
 
+
+<script>
+/* valor_IA v13.12.1 - corrige aba Cotações */
+(function(){
+  function objValsSafe(o){
+    return Object.entries(o || {}).map(function(e){
+      return Object.assign({id:e[0]}, e[1] || {});
+    });
+  }
+  function E(v){
+    if(typeof esc === "function") return esc(v);
+    return String(v == null ? "" : v).replace(/[&<>"']/g,function(m){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m];
+    });
+  }
+  function M(v){
+    if(typeof money === "function") return money(v);
+    return Number(v || 0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  }
+  function supplierLabel(sid){
+    return (window.suppliers && suppliers[sid] && (suppliers[sid].name || suppliers[sid].nome)) || sid || "Fornecedor";
+  }
+  function findQuotesContainer(){
+    return document.getElementById("quotesList")
+      || document.getElementById("quoteList")
+      || document.getElementById("cotacoesList")
+      || document.querySelector("#cotacoes .card div")
+      || document.querySelector("#cotacoes .card")
+      || document.getElementById("cotacoes");
+  }
+  function responsesForItem(q,item){
+    const rows = [];
+    Object.entries(q.responses || {}).forEach(function(pair){
+      const sid = pair[0];
+      const r = (pair[1] || {})[item.id];
+      if(!r) return;
+      rows.push({
+        supplierId:sid,
+        supplierName:supplierLabel(sid),
+        available:r.available !== false,
+        brand:r.brand || r.marca || "",
+        brandCode:r.brandCode || r.codigoMarca || "",
+        desc:r.desc || r.descricaoFornecedor || "",
+        price:Number(r.price || r.preco || 0),
+        availability:r.availability || r.disponibilidade || "",
+        obs:r.obs || r.observacao || "",
+        raw:r.raw || r.rawText || r.text || "",
+        source:r.source || r.origem || "formulário"
+      });
+    });
+    rows.sort(function(a,b){
+      if(a.available !== b.available) return a.available ? -1 : 1;
+      return (a.price || 999999999) - (b.price || 999999999);
+    });
+    return rows;
+  }
+  function bestForItem(q,item){
+    return responsesForItem(q,item).filter(function(r){ return r.available && r.price > 0; })[0] || null;
+  }
+  window.renderFullComparison = function(qid){
+    const q = (window.quotes || {})[qid];
+    if(!q) return alert("Cotação não encontrada.");
+    let html = '<div class="card" style="box-shadow:none;margin-top:12px"><h3>📊 Comparação completa</h3><p class="muted">Marca, código da marca, descrição, preço, prazo, observação e resposta bruta de cada fornecedor.</p><div class="tablewrap"><table><thead><tr><th>Peça</th><th>Fornecedor</th><th>Marca</th><th>Cód. marca</th><th>Descrição fornecedor</th><th>Preço unit.</th><th>Total</th><th>Prazo</th><th>Obs./bruto</th></tr></thead><tbody>';
+    (q.items || []).forEach(function(item){
+      const qty = Number(item.qty || 1);
+      const rows = responsesForItem(q,item);
+      if(!rows.length){
+        html += '<tr><td><b>'+E(item.desc||"-")+'</b><br><span class="muted">'+E(item.oem||"-")+' | Qtd '+qty+'</span></td><td colspan="8"><span class="bad">Sem resposta</span></td></tr>';
+      }else{
+        rows.forEach(function(r,idx){
+          html += '<tr>'
+            + '<td>'+(idx===0 ? '<b>'+E(item.desc||"-")+'</b><br><span class="muted">'+E(item.oem||"-")+' | Qtd '+qty+'</span>' : '')+'</td>'
+            + '<td><b>'+E(r.supplierName)+'</b><br><span class="muted">'+E(r.source)+'</span></td>'
+            + '<td>'+(r.available ? E(r.brand||"-") : '<span class="bad">Não tem</span>')+'</td>'
+            + '<td>'+E(r.brandCode||"-")+'</td>'
+            + '<td>'+E(r.desc||"-")+'</td>'
+            + '<td>'+(r.price ? M(r.price) : "-")+'</td>'
+            + '<td>'+(r.price ? M(r.price*qty) : "-")+'</td>'
+            + '<td>'+E(r.availability||"-")+'</td>'
+            + '<td>'+E(r.obs||"-")+(r.raw ? '<br><span class="muted">Bruto: '+E(r.raw)+'</span>' : '')+'</td>'
+            + '</tr>';
+        });
+      }
+    });
+    html += '</tbody></table></div><p class="muted small">Powered by thIAguinho Soluções Digitais</p></div>';
+    const box = document.getElementById("comparison_"+qid);
+    if(box) box.innerHTML = html;
+  };
+  window.renderWhatsAppRawReplies = function(qid){
+    const q = (window.quotes || {})[qid];
+    if(!q) return alert("Cotação não encontrada.");
+    const raw = Object.entries(q.whatsappRawReplies || {}).sort(function(a,b){return (b[1].receivedAt||0)-(a[1].receivedAt||0);});
+    let html = '<div class="card" style="box-shadow:none;margin-top:12px"><h3>💬 Respostas diretas no WhatsApp</h3>';
+    if(!raw.length) html += '<p class="muted">Nenhuma resposta direta registrada.</p>';
+    raw.forEach(function(pair){
+      const r = pair[1] || {};
+      html += '<div style="border:1px solid #d9e2ef;border-radius:14px;padding:10px;margin:8px 0;background:#fff">'
+        + '<b>'+E(r.supplierName || supplierLabel(r.supplierId))+'</b>'
+        + '<span class="muted"> — '+(r.receivedAt ? new Date(r.receivedAt).toLocaleString("pt-BR") : '')+'</span><br>'
+        + '<span class="muted">Status: '+E(r.parseStatus||"registrado")+' | Itens interpretados: '+(r.parsedCount||0)+'</span>'
+        + '<pre style="white-space:pre-wrap;background:#f8fafc;border-radius:10px;padding:10px">'+E(r.text||"")+'</pre>'
+        + '</div>';
+    });
+    html += '<p class="muted small">Powered by thIAguinho Soluções Digitais</p></div>';
+    const box = document.getElementById("comparison_"+qid);
+    if(box) box.innerHTML = html;
+  };
+  window.renderQuotes = function(){
+    const el = findQuotesContainer();
+    if(!el) return console.warn("Container da aba Cotações não encontrado.");
+    const list = objValsSafe(window.quotes).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+    if(!list.length){
+      el.innerHTML = '<h2>Cotações</h2><p class="muted">Nenhuma cotação criada.</p>';
+      return;
+    }
+    el.innerHTML = '<h2>Cotações</h2>' + list.map(function(q){
+      const items = q.items || [];
+      const answered = items.filter(function(it){ return !!bestForItem(q,it); }).length;
+      let lucro = 0;
+      items.forEach(function(it){
+        const b = bestForItem(q,it);
+        const sale = Number(it.saleTotal || (Number(it.saleUnit||0)*Number(it.qty||1)) || 0);
+        if(b) lucro += sale - (b.price * Number(it.qty||1));
+      });
+      const v = q.vehicle || {};
+      return '<div class="quote">'
+        + '<h3>'+E(q.number||q.id)+' <span class="pill">'+E(q.status||"open")+'</span></h3>'
+        + '<p class="muted">'+E([v.brand,v.model,v.year,v.plate].filter(Boolean).join(" "))+' — '+items.length+' item(ns) — respondidos '+answered+'/'+items.length+'</p>'
+        + '<p><b>Lucro estimado:</b> <span class="'+(lucro>=0?'ok':'bad')+'">'+M(lucro)+'</span></p>'
+        + '<div class="row">'
+        + '<button onclick="renderFullComparison(\''+q.id+'\')">Comparar respostas</button>'
+        + '<button class="light" onclick="renderWhatsAppRawReplies(\''+q.id+'\')">Ver respostas WhatsApp</button>'
+        + '<button class="light" onclick="if(typeof analyzeQuote===\'function\')analyzeQuote(\''+q.id+'\')">Analisar cotação</button>'
+        + '<button class="light" onclick="if(typeof editQuote===\'function\')editQuote(\''+q.id+'\')">Editar</button>'
+        + '<button class="red" onclick="if(typeof deleteQuote===\'function\')deleteQuote(\''+q.id+'\')">Excluir</button>'
+        + '</div>'
+        + '<div id="comparison_'+q.id+'"></div>'
+        + '</div>';
+    }).join('');
+  };
+  const oldRenderAll = window.renderAll;
+  window.renderAll = function(){
+    try{
+      if(typeof renderStats === "function") renderStats();
+      if(typeof renderSuppliers === "function") renderSuppliers();
+      if(typeof renderPriceSelects === "function") renderPriceSelects();
+      if(typeof renderPriceDb === "function") renderPriceDb();
+      window.renderQuotes();
+      if(typeof renderOrders === "function") renderOrders();
+      if(typeof renderRobot === "function") renderRobot();
+      if(typeof renderHome === "function") renderHome();
+    }catch(e){
+      console.error("renderAll protegido:", e);
+    }
+  };
+})();
+</script>
+
 </body></html>
