@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Instalador valor_IA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fb;color:#172033;margin:0}
+main{max-width:950px;margin:auto;padding:18px}
+.card{background:white;border:1px solid #d9e2ef;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 10px 28px #0001}
+label{display:block;font-weight:800;margin:10px 0 5px;color:#46556b}
+input,textarea{width:100%;border:1px solid #d9e2ef;border-radius:12px;padding:10px;font-size:14px}
+textarea{min-height:130px}
+button{border:0;border-radius:12px;padding:12px 14px;background:#1d4ed8;color:white;font-weight:900;cursor:pointer;margin:4px}
+button.green{background:#15803d}
+pre{white-space:pre-wrap;background:#0f172a;color:#e5e7eb;border-radius:14px;padding:14px;overflow:auto}
+.small{color:#667085;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Instalador valor_IA</h1>
+  <p>Preencha os dados do Firebase e do GitHub Pages do cliente. Depois gere os arquivos de configuração e execute o instalador do robô.</p>
+
+  <div class="card">
+    <h2>1. Configuração Firebase</h2>
+    <label>Config completa do Firebase Web App</label>
+    <textarea id="firebaseBlock" placeholder='Cole aqui o bloco: const firebaseConfig = {...};'></textarea>
+    <label>Link do GitHub Pages do cliente</label>
+    <input id="siteUrl" placeholder="https://usuario.github.io/valor_IA/index.html">
+    <label>Email admin criado no Firebase Auth</label>
+    <input id="adminEmail" placeholder="admin@cliente.com">
+    <label>Nome do estabelecimento</label>
+    <input id="businessName" placeholder="Oficina / Loja do cliente">
+    <label>WhatsApp do gestor para avisos</label>
+    <input id="managerPhone" placeholder="5517999999999">
+    <button class="green" onclick="generateFiles()">Gerar arquivos de configuração</button>
+  </div>
+
+  <div class="card">
+    <h2>2. Arquivos gerados</h2>
+    <p class="small">Baixe e substitua os arquivos na pasta do sistema. O arquivo <b>firebase-config.js</b> também deve ir para o GitHub Pages.</p>
+    <button onclick="downloadFirebaseConfig()">Baixar firebase-config.js</button>
+    <button onclick="downloadRobotConfig()">Baixar robo-config.json</button>
+    <button onclick="downloadClientNotes()">Baixar DADOS_DO_CLIENTE.txt</button>
+    <pre id="preview">Aguardando configuração...</pre>
+  </div>
+
+  <div class="card">
+    <h2>3. Instalar robô no computador</h2>
+    <p>Coloque <b>robo-config.json</b> dentro da pasta <b>robo-whatsapp</b> e clique:</p>
+    <pre>INSTALAR_E_ABRIR_ROBO_VALORIA.bat</pre>
+    <p class="small">O instalador pode pedir administrador para criar regra específica no firewall para o Node.js. Ele não desativa o firewall inteiro.</p>
+  </div>
+
+  <p class="small">Powered by thIAguinho Soluções Digitais</p>
+</main>
+<script>
+let generated = {};
+function extractConfig(text){
+  let t = text.trim();
+  t = t.replace(/^const\s+firebaseConfig\s*=\s*/,"").replace(/^var\s+firebaseConfig\s*=\s*/,"").replace(/^let\s+firebaseConfig\s*=\s*/,"");
+  t = t.replace(/;\s*$/,"");
+  try { return Function("return ("+t+")")(); } catch(e){ alert("Não consegui ler a config do Firebase. Cole o bloco completo."); throw e; }
+}
+function generateFiles(){
+  const cfg = extractConfig(document.getElementById("firebaseBlock").value);
+  const siteUrl = document.getElementById("siteUrl").value.trim();
+  const adminEmail = document.getElementById("adminEmail").value.trim();
+  const businessName = document.getElementById("businessName").value.trim();
+  const managerPhone = document.getElementById("managerPhone").value.trim();
+  if(!cfg.apiKey || !cfg.databaseURL || !cfg.projectId) return alert("Config Firebase incompleta.");
+  generated.firebaseConfig = `const firebaseConfig = ${JSON.stringify(cfg,null,2)};\n\nif (typeof window !== "undefined") window.firebaseConfig = firebaseConfig;\nif (typeof module !== "undefined") module.exports = firebaseConfig;\n`;
+  generated.robotConfig = JSON.stringify({siteUrl,adminEmail,businessName,managerPhone,createdAt:new Date().toISOString(),signature:"Powered by thIAguinho Soluções Digitais"},null,2);
+  generated.notes = [
+    "DADOS DO CLIENTE - valor_IA",
+    "",
+    "Estabelecimento: "+businessName,
+    "GitHub Pages: "+siteUrl,
+    "Email admin Firebase Auth: "+adminEmail,
+    "WhatsApp gestor: "+managerPhone,
+    "Projeto Firebase: "+cfg.projectId,
+    "Realtime Database: "+cfg.databaseURL,
+    "",
+    "Powered by thIAguinho Soluções Digitais"
+  ].join("\n");
+  document.getElementById("preview").textContent = "firebase-config.js\n\n"+generated.firebaseConfig+"\n\nrobo-config.json\n\n"+generated.robotConfig;
+}
+function download(name, text){
+  if(!text) return alert("Clique primeiro em Gerar arquivos de configuração.");
+  const blob = new Blob([text],{type:"text/plain;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function downloadFirebaseConfig(){download("firebase-config.js", generated.firebaseConfig)}
+function downloadRobotConfig(){download("robo-config.json", generated.robotConfig)}
+function downloadClientNotes(){download("DADOS_DO_CLIENTE.txt", generated.notes)}
+</script>
+</body>
+</html>

@@ -43,3 +43,14 @@ FLUXO DE IMPLANTAÇÃO EM CLIENTE
 6. Abrir config.html e gerar firebase-config.js / robo-config.json.
 7. Colocar robo-config.json dentro da pasta robo-whatsapp.
 8. Rodar INSTALAR_E_ABRIR_ROBO_VALORIA.bat.
+
+
+V13.9
+- Formulário do fornecedor ficou mais prático:
+  - botão Tenho abre/preenche o item;
+  - botão Não tenho salva automaticamente e vai para o próximo;
+  - o fornecedor só vê código, descrição e quantidade;
+  - valores internos da planilha/orçamento não aparecem para o fornecedor.
+- Mensagem do WhatsApp reforçada para pedir preço atual e prazo pelo link.
+- Robô melhorado para registrar mensagens de número não cadastrado quando a resposta citar o número da cotação.
+- Importante: se você responder pelo mesmo WhatsApp conectado ao robô, ele ignora porque é mensagem enviada por você mesmo. Teste com outro número cadastrado como fornecedor.

@@ -105,4 +105,142 @@ function renderOrders(){$('orders').innerHTML=obj(orders).sort((a,b)=>(b.created
 function renderRobot(){$('robot').innerHTML=`<p>Status: <b>${esc(robotStatus.status||'sem informação')}</b></p><p>Enviadas hoje: ${robotStatus.sentToday||0}/100</p>`;$('queueList').innerHTML=obj(queue).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,20).map(x=>`<div class="quote"><b>${esc(x.status)}</b> — ${esc(x.supplierName||'')}<br><span class="muted">${esc(x.phone||'')}</span></div>`).join('')||'<p class="muted">Fila vazia.</p>'}
 window.addEventListener('load',init);
 </script>
+
+<script>
+(function(){
+  function safeObj(o){ return Object.entries(o||{}).map(function(e){return Object.assign({id:e[0]}, e[1]||{});}); }
+  function S(v){ return String(v==null?"":v); }
+  function E(v){ return (typeof esc==="function") ? esc(v) : S(v).replace(/[&<>"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]}); }
+  function M(v){ return (typeof money==="function") ? money(v) : Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
+  function supplierLabel(sid){ return (window.suppliers && suppliers[sid] && (suppliers[sid].name || suppliers[sid].nome)) || sid || "Fornecedor"; }
+  function getResponsesForItem(q,item){
+    const resp = q.responses || {};
+    const rows = [];
+    Object.entries(resp).forEach(function(pair){
+      const sid = pair[0], byItem = pair[1] || {};
+      const r = byItem[item.id];
+      if(!r) return;
+      rows.push({
+        supplierId:sid,
+        supplierName:supplierLabel(sid),
+        available:r.available !== false,
+        brand:r.brand || r.marca || "",
+        brandCode:r.brandCode || r.codigoMarca || "",
+        desc:r.desc || r.descricaoFornecedor || "",
+        price:Number(r.price || r.preco || 0),
+        availability:r.availability || r.disponibilidade || "",
+        obs:r.obs || r.observacao || "",
+        raw:r.raw || r.rawText || r.text || "",
+        source:r.source || r.origem || "formulário",
+        updatedAt:r.updatedAt || r.receivedAt || null
+      });
+    });
+    rows.sort(function(a,b){
+      if(a.available !== b.available) return a.available ? -1 : 1;
+      return (a.price||999999999) - (b.price||999999999);
+    });
+    return rows;
+  }
+  function bestResponse(q,item){
+    return getResponsesForItem(q,item).filter(function(r){return r.available && r.price > 0;})[0] || null;
+  }
+  window.renderFullComparison = function(qid){
+    const q = quotes[qid];
+    if(!q) return alert("Cotação não encontrada.");
+    const items = q.items || [];
+    let html = `<div class="card" style="box-shadow:none;margin-top:12px">
+      <h3>📊 Comparação completa por fornecedor, marca e preço</h3>
+      <p class="muted">Mostra tudo que cada fornecedor respondeu: marca, código da marca, descrição, preço, prazo, observação e resposta bruta.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Peça</th><th>Fornecedor</th><th>Marca</th><th>Cód. marca</th><th>Descrição do fornecedor</th><th>Preço unit.</th><th>Total</th><th>Disponibilidade</th><th>Obs./Resposta</th></tr></thead><tbody>`;
+    items.forEach(function(item){
+      const qty = Number(item.qty || 1);
+      const rows = getResponsesForItem(q,item);
+      if(!rows.length){
+        html += `<tr><td><b>${E(item.desc||"-")}</b><br><span class="muted">${E(item.oem||"-")} | Qtd ${qty}</span></td><td colspan="8"><span class="bad">Sem resposta</span></td></tr>`;
+        return;
+      }
+      rows.forEach(function(r,idx){
+        html += `<tr>
+          <td>${idx===0 ? `<b>${E(item.desc||"-")}</b><br><span class="muted">${E(item.oem||"-")} | Qtd ${qty}</span>` : ""}</td>
+          <td><b>${E(r.supplierName)}</b><br><span class="muted">${E(r.source)}</span></td>
+          <td>${r.available ? E(r.brand||"-") : "<span class='bad'>Não tem</span>"}</td>
+          <td>${E(r.brandCode||"-")}</td>
+          <td>${E(r.desc||"-")}</td>
+          <td>${r.price ? M(r.price) : "-"}</td>
+          <td>${r.price ? M(r.price * qty) : "-"}</td>
+          <td>${E(r.availability||"-")}</td>
+          <td>${E(r.obs||"-")}${r.raw ? `<br><span class="muted">Bruto WhatsApp: ${E(r.raw)}</span>` : ""}</td>
+        </tr>`;
+      });
+    });
+    html += `</tbody></table></div><p class="muted small">Powered by thIAguinho Soluções Digitais</p></div>`;
+    const el = document.getElementById("fullComparison_"+qid) || document.getElementById("analysis_"+qid);
+    if(el) el.innerHTML = html; else alert("Área de comparação não encontrada.");
+  };
+  window.renderWhatsAppRawReplies = function(qid){
+    const q = quotes[qid];
+    if(!q) return alert("Cotação não encontrada.");
+    const raw = q.whatsappRawReplies || {};
+    const list = Object.entries(raw).sort(function(a,b){return (b[1].receivedAt||0)-(a[1].receivedAt||0);});
+    let html = `<div class="card" style="box-shadow:none;margin-top:12px"><h3>💬 Respostas diretas recebidas no WhatsApp</h3>`;
+    if(!list.length) html += `<p class="muted">Nenhuma resposta direta registrada ainda.</p>`;
+    list.forEach(function(pair){
+      const r = pair[1] || {};
+      html += `<div style="border:1px solid #d9e2ef;border-radius:14px;padding:10px;margin:8px 0;background:#fff">
+        <b>${E(r.supplierName || supplierLabel(r.supplierId))}</b>
+        <span class="muted"> — ${r.receivedAt ? new Date(r.receivedAt).toLocaleString("pt-BR") : ""}</span><br>
+        <span class="muted">Status: ${E(r.parseStatus||"registrado")} | Itens interpretados: ${r.parsedCount||0}</span>
+        <pre style="white-space:pre-wrap;background:#f8fafc;border-radius:10px;padding:10px">${E(r.text||"")}</pre>
+      </div>`;
+    });
+    html += `<p class="muted small">Powered by thIAguinho Soluções Digitais</p></div>`;
+    const el = document.getElementById("fullComparison_"+qid) || document.getElementById("analysis_"+qid);
+    if(el) el.innerHTML = html;
+  };
+  window.renderQuotes = function(){
+    const el = document.getElementById("quotesList") || document.getElementById("quoteList") || document.getElementById("cotacoesList");
+    if(!el) return;
+    const list = safeObj(window.quotes).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+    if(!list.length){ el.innerHTML = "<p class='muted'>Nenhuma cotação criada.</p>"; return; }
+    el.innerHTML = list.map(function(q){
+      const items = q.items || [];
+      const answered = items.filter(function(it){ return !!bestResponse(q,it); }).length;
+      let lucro = 0;
+      items.forEach(function(it){
+        const b = bestResponse(q,it);
+        const sale = Number(it.saleTotal || (Number(it.saleUnit||0)*Number(it.qty||1)) || 0);
+        if(b) lucro += sale - (b.price * Number(it.qty||1));
+      });
+      const vehicle = q.vehicle || {};
+      return `<div class="quote">
+        <h3>${E(q.number||q.id)} <span class="pill">${E(q.status||"open")}</span></h3>
+        <p class="muted">${E([vehicle.brand,vehicle.model,vehicle.year,vehicle.plate].filter(Boolean).join(" "))} — ${items.length} item(ns) — respondidos ${answered}/${items.length}</p>
+        <p><b>Lucro estimado:</b> <span class="${lucro>=0?'ok':'bad'}">${M(lucro)}</span></p>
+        <div class="row">
+          <button onclick="renderFullComparison('${q.id}')">Comparar respostas</button>
+          <button class="light" onclick="renderWhatsAppRawReplies('${q.id}')">Ver respostas WhatsApp</button>
+          <button class="light" onclick="if(typeof analyzeQuote==='function')analyzeQuote('${q.id}')">Analisar cotação</button>
+          <button class="light" onclick="if(typeof editQuote==='function')editQuote('${q.id}')">Editar</button>
+          <button class="red" onclick="if(typeof deleteQuote==='function')deleteQuote('${q.id}')">Excluir</button>
+        </div>
+        <div id="fullComparison_${q.id}"></div>
+      </div>`;
+    }).join("");
+  };
+  const oldRenderAll = window.renderAll;
+  window.renderAll = function(){
+    try{
+      if(typeof renderStats === "function") renderStats();
+      if(typeof renderSuppliers === "function") renderSuppliers();
+      if(typeof renderPriceSelects === "function") renderPriceSelects();
+      if(typeof renderPriceDb === "function") renderPriceDb();
+      window.renderQuotes();
+      if(typeof renderOrders === "function") renderOrders();
+      if(typeof renderRobot === "function") renderRobot();
+    }catch(e){ console.error("renderAll protegido:", e); }
+  };
+})();
+</script>
+
 </body></html>
