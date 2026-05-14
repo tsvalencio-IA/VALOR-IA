@@ -1,0 +1,38 @@
+{
+  "rules": {
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "suppliers": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "priceDb": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "purchaseOrders": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "whatsappQueue": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "robotStatus": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "audit": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "quotes": {
+      ".read": true,
+      "$quoteId": {
+        ".write": true
+      }
+    }
+  }
+}
