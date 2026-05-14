@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "settings": {
+      ".read": true,
+      ".write": true
+    },
+    "suppliers": {
+      ".read": true,
+      ".write": true
+    },
+    "quotes": {
+      ".read": true,
+      ".write": true
+    },
+    "whatsappQueue": {
+      ".read": true,
+      ".write": true
+    },
+    "priceDb": {
+      ".read": true,
+      ".write": true
+    },
+    "purchaseOrders": {
+      ".read": true,
+      ".write": true
+    },
+    "robotStatus": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
